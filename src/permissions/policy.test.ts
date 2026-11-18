@@ -204,6 +204,19 @@ describe("rule 2: a manager edits only their own direct reports", () => {
     );
   });
 
+  it("refuses even a request that changes nothing on a user from another team", () => {
+    const dmytro = makeUser({ managerId: otherManager.id });
+    expectDenied(
+      authorizeUserUpdate(
+        anna,
+        dmytro,
+        { fullName: dmytro.fullName, role: dmytro.role },
+        PLENTY_OF_IT,
+      ),
+      "NOT_A_DIRECT_REPORT",
+    );
+  });
+
   it("refuses a user nobody manages", () => {
     const unassigned = makeUser({ managerId: null });
     expectDenied(

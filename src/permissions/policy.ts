@@ -134,9 +134,14 @@ export function authorizeUserCreate(actor: Actor): Decision {
  *   1. Capability and scope (rules 1 and 2).
  *   2. The last-active-account rule (rule 4).
  *   3. The self-protection rules (rule 3).
+ *   4. The actor must be able to see the target at all.
  * Rule 4 comes before rule 3 on purpose. When the actor is the last active IT
  * and deactivates themselves, the reason that matters is the system-wide one.
  * With another IT still active, the same request fails on the self rule.
+ *
+ * Step 4 is last so that a refused change names the specific reason. It exists
+ * for the request that changes nothing: without it, a manager could resend a
+ * stranger's current values and get the stranger's record back.
  */
 export function authorizeUserUpdate(
   actor: Actor,
@@ -206,5 +211,6 @@ export function authorizeUserUpdate(
     }
   }
 
-  return allow();
+  // 4. Reaching the target at all.
+  return authorizeUserView(actor, target);
 }
