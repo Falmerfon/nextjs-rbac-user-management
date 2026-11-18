@@ -4,10 +4,22 @@ import type { User } from "@/domain/user";
 import { generateClients } from "./seed/clients";
 import { SEED_ACCOUNTS } from "./seed/users";
 
+/**
+ * A login. It holds only who the session belongs to. The user's role and
+ * status are always read from `users`, never copied here (rule 5).
+ */
+export interface Session {
+  userId: string;
+  /** Milliseconds since the epoch. */
+  expiresAt: number;
+}
+
 export interface Store {
   users: Map<string, User>;
   /** userId to plain-text password. The task allows plain text here. */
   passwords: Map<string, string>;
+  /** Session id to session. The id is the value of the session cookie. */
+  sessions: Map<string, Session>;
   /** Clients never change at runtime, so the list is read-only. */
   clients: readonly Client[];
 }
@@ -22,7 +34,7 @@ export function createSeededStore(): Store {
     passwords.set(user.id, password);
   }
 
-  return { users, passwords, clients: generateClients() };
+  return { users, passwords, sessions: new Map(), clients: generateClients() };
 }
 
 declare global {
