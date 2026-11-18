@@ -1,11 +1,8 @@
 import "server-only";
 import { randomBytes } from "node:crypto";
 import { USER_STATUS, type User } from "@/domain/user";
-import {
-  createUserSchema,
-  describeIssues,
-  updateUserSchema,
-} from "@/domain/user-schemas";
+import { describeIssues } from "@/domain/issues";
+import { createUserSchema, updateUserSchema } from "@/domain/user-schemas";
 import {
   authorizeUserCreate,
   authorizeUserManagement,

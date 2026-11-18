@@ -1,10 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ROLES } from "@/permissions/roles";
-import {
-  createUserSchema,
-  describeIssues,
-  updateUserSchema,
-} from "./user-schemas";
+import { describeIssues } from "./issues";
+import { createUserSchema, updateUserSchema } from "./user-schemas";
 import { USER_STATUS } from "./user";
 
 const validCreate = {
