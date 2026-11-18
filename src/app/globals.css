@@ -1,0 +1,74 @@
+/* Deliberately plain. Styling is not part of what this project is about. */
+body {
+  font-family: system-ui, sans-serif;
+  line-height: 1.45;
+  margin: 0;
+}
+
+header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.6rem 1.5rem;
+  border-bottom: 1px solid #ccc;
+}
+
+header nav a {
+  margin-right: 1rem;
+}
+
+main {
+  padding: 0.5rem 1.5rem 2rem;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+th,
+td {
+  text-align: left;
+  vertical-align: top;
+  padding: 0.35rem 0.5rem;
+  border-bottom: 1px solid #ddd;
+}
+
+input,
+select,
+button {
+  font: inherit;
+}
+
+label {
+  display: block;
+  margin-bottom: 0.6rem;
+}
+
+label input,
+label select {
+  display: block;
+}
+
+.error {
+  color: #b00020;
+}
+
+.ok {
+  color: #1b5e20;
+}
+
+.muted {
+  color: #666;
+}
+
+.pager {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  margin: 0.75rem 0;
+}

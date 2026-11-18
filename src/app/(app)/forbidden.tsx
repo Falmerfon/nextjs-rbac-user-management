@@ -7,12 +7,12 @@ import Link from "next/link";
  */
 export default function Forbidden() {
   return (
-    <main>
+    <section>
       <h1>403: access denied</h1>
       <p>You are signed in, but your role does not allow you to open this page.</p>
       <p>
         <Link href="/">Go to your home page</Link>
       </p>
-    </main>
+    </section>
   );
 }
