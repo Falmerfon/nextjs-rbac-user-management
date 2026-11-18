@@ -2,22 +2,36 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Stand-in for the request's cookie store. Everything else runs for real: the
 // route handlers, requireUser, the services, the policy and the store.
-const cookieJar = vi.hoisted(() => new Map<string, string>());
+//
+// Each request gets its own jar through AsyncLocalStorage, so requests that run
+// at the same time cannot see each other's cookies. That is what lets a test
+// start two users' requests together and check a race.
+const requestJar = await vi.hoisted(async () => {
+  const { AsyncLocalStorage } = await import("node:async_hooks");
+  return new AsyncLocalStorage<Map<string, string>>();
+});
 
-vi.mock("next/headers", () => ({
-  cookies: async () => ({
-    get: (name: string) => {
-      const value = cookieJar.get(name);
-      return value === undefined ? undefined : { name, value };
-    },
-    set: (name: string, value: string) => {
-      cookieJar.set(name, value);
-    },
-    delete: (name: string) => {
-      cookieJar.delete(name);
-    },
-  }),
-}));
+vi.mock("next/headers", () => {
+  const jar = () => {
+    const current = requestJar.getStore();
+    if (!current) throw new Error("No cookie jar: run the route through call()");
+    return current;
+  };
+  return {
+    cookies: async () => ({
+      get: (name: string) => {
+        const value = jar().get(name);
+        return value === undefined ? undefined : { name, value };
+      },
+      set: (name: string, value: string) => {
+        jar().set(name, value);
+      },
+      delete: (name: string) => {
+        jar().delete(name);
+      },
+    }),
+  };
+});
 
 import { POST as loginRoute } from "@/app/api/auth/login/route";
 import { GET as meRoute } from "@/app/api/auth/me/route";
@@ -52,9 +66,9 @@ async function call(
   run: () => Promise<Response>,
   session: string | null,
 ): Promise<Reply> {
-  cookieJar.clear();
-  if (session) cookieJar.set("session", session);
-  const response = await run();
+  const jar = new Map<string, string>();
+  if (session) jar.set("session", session);
+  const response = await requestJar.run(jar, run);
   const body = (await response.json().catch(() => ({}))) as Body;
   return { status: response.status, headers: response.headers, body };
 }
@@ -91,12 +105,12 @@ const api = {
 
 /** Logs in through the real login route and returns the session cookie. */
 async function signIn(email: string, password: string): Promise<string> {
-  cookieJar.clear();
-  const response = await loginRoute(
-    jsonRequest("POST", "/api/auth/login", { email, password }),
+  const jar = new Map<string, string>();
+  const response = await requestJar.run(jar, () =>
+    loginRoute(jsonRequest("POST", "/api/auth/login", { email, password })),
   );
   expect(response.status).toBe(200);
-  const session = cookieJar.get("session");
+  const session = jar.get("session");
   if (!session) throw new Error("Login did not set a session cookie");
   return session;
 }
@@ -106,7 +120,6 @@ const deactivate = { status: USER_STATUS.DEACTIVATED };
 
 beforeEach(() => {
   globalThis.__rbacStore = undefined;
-  cookieJar.clear();
 });
 
 describe("every endpoint needs a login", () => {
@@ -272,12 +285,13 @@ describe("scenario 12 and rule 5: deactivation cuts a session off at once", () =
     const ivan = await signIn("ivan@example.com", "ivan123");
     await api.patchUser(ivan, "usr_olena", deactivate);
 
-    cookieJar.clear();
-    const response = await loginRoute(
-      jsonRequest("POST", "/api/auth/login", {
-        email: "olena@example.com",
-        password: "olena123",
-      }),
+    const response = await requestJar.run(new Map(), () =>
+      loginRoute(
+        jsonRequest("POST", "/api/auth/login", {
+          email: "olena@example.com",
+          password: "olena123",
+        }),
+      ),
     );
     expect(response.status).toBe(403);
   });
@@ -394,5 +408,187 @@ describe("what responses contain", () => {
     for (const reply of [await api.users(anna), await api.clients(anna), await api.me(null)]) {
       expect(reply.headers.get("cache-control")).toBe("no-store");
     }
+  });
+});
+
+describe("the review checklist, over HTTP", () => {
+  const record = async (session: string, id: string) =>
+    (await api.user(session, id)).body.user;
+
+  const rawPatch = (session: string | null, id: string, raw: string) =>
+    call(
+      () =>
+        patchUserRoute(
+          new Request(`${BASE}/api/users/${id}`, {
+            method: "PATCH",
+            headers: { "content-type": "application/json" },
+            body: raw,
+          }),
+          forUser(id),
+        ),
+      session,
+    );
+
+  it("refuses a mixed body as a whole and applies none of it", async () => {
+    const anna = await signIn("anna@example.com", "anna123");
+    const ivan = await signIn("ivan@example.com", "ivan123");
+    const before = await record(ivan, "usr_olena");
+
+    const reply = await api.patchUser(anna, "usr_olena", {
+      fullName: "Hijacked",
+      role: ROLES.IT,
+      status: USER_STATUS.DEACTIVATED,
+    });
+
+    expect(reply.status).toBe(403);
+    expect(await record(ivan, "usr_olena")).toEqual(before);
+  });
+
+  it("refuses a body that also tries to move the user to another manager", async () => {
+    const anna = await signIn("anna@example.com", "anna123");
+    const ivan = await signIn("ivan@example.com", "ivan123");
+    const before = await record(ivan, "usr_olena");
+
+    const reply = await api.patchUser(anna, "usr_olena", {
+      fullName: "Hijacked",
+      role: ROLES.IT,
+      status: USER_STATUS.DEACTIVATED,
+      managerId: "usr_taras",
+    });
+
+    expect(reply.status).toBe(400);
+    expect(await record(ivan, "usr_olena")).toEqual(before);
+  });
+
+  it.each([
+    ["__proto__", `{"fullName":"x","__proto__":{"role":"${ROLES.IT}"}}`],
+    ["constructor", `{"fullName":"x","constructor":{"prototype":{"role":"${ROLES.IT}"}}}`],
+  ])("rejects a raw JSON body with a %s key and changes nothing", async (_key, raw) => {
+    const anna = await signIn("anna@example.com", "anna123");
+    const ivan = await signIn("ivan@example.com", "ivan123");
+    const before = await record(ivan, "usr_olena");
+
+    expect((await rawPatch(anna, "usr_olena", raw)).status).toBe(400);
+
+    expect(await record(ivan, "usr_olena")).toEqual(before);
+    expect(({} as { role?: string }).role).toBeUndefined();
+  });
+
+  it("reads a duplicate key the way JSON.parse does, so the last one wins and nothing escalates", async () => {
+    const anna = await signIn("anna@example.com", "anna123");
+    const ivan = await signIn("ivan@example.com", "ivan123");
+
+    const reply = await rawPatch(
+      anna,
+      "usr_olena",
+      `{"fullName":"Dup","role":"${ROLES.IT}","role":"${ROLES.USER}"}`,
+    );
+
+    expect(reply.status).toBe(200);
+    expect(await record(ivan, "usr_olena")).toMatchObject({
+      fullName: "Dup",
+      role: ROLES.USER,
+    });
+  });
+
+  it("refuses a manager every edit outside their direct reports", async () => {
+    const anna = await signIn("anna@example.com", "anna123");
+    const targets = ["usr_dmytro", "usr_taras", "usr_anna", "usr_kateryna"];
+    for (const id of targets) {
+      const reply = await api.patchUser(anna, id, { fullName: "Hijacked" });
+      expect([id, reply.status]).toEqual([id, 403]);
+    }
+  });
+
+  it("refuses a manager the fields that are not theirs to change", async () => {
+    const anna = await signIn("anna@example.com", "anna123");
+    expect((await api.patchUser(anna, "usr_olena", { role: ROLES.MANAGER })).status).toBe(403);
+    expect((await api.patchUser(anna, "usr_olena", deactivate)).status).toBe(403);
+    expect((await api.patchUser(anna, "usr_olena", { managerId: "usr_taras" })).status).toBe(400);
+    expect(
+      (await api.createUser(anna, {
+        fullName: "Nina",
+        email: "nina@example.com",
+        password: "secret1",
+        role: ROLES.USER,
+      })).status,
+    ).toBe(403);
+  });
+
+  it("refuses a plain user the whole users API", async () => {
+    const olena = await signIn("olena@example.com", "olena123");
+    expect((await api.users(olena)).status).toBe(403);
+    expect((await api.user(olena, "usr_olena")).status).toBe(403);
+    expect((await api.patchUser(olena, "usr_olena", { fullName: "X" })).status).toBe(403);
+    expect(
+      (await api.createUser(olena, {
+        fullName: "Nina",
+        email: "nina@example.com",
+        password: "secret1",
+        role: ROLES.USER,
+      })).status,
+    ).toBe(403);
+  });
+
+  it("refuses IT to change their own role, and the last IT to be demoted", async () => {
+    const ivan = await signIn("ivan@example.com", "ivan123");
+
+    const own = await api.patchUser(ivan, "usr_ivan", { role: ROLES.MANAGER });
+    expect([own.status, errorCode(own)]).toEqual([403, "CANNOT_CHANGE_OWN_ROLE"]);
+
+    await api.patchUser(ivan, "usr_iryna", deactivate);
+    const last = await api.patchUser(ivan, "usr_ivan", { role: ROLES.MANAGER });
+    expect([last.status, errorCode(last)]).toEqual([409, "LAST_ACTIVE_ACCOUNT"]);
+    expect((await record(ivan, "usr_ivan"))?.role).toBe(ROLES.IT);
+  });
+
+  it("does not return a password when a user is created", async () => {
+    const ivan = await signIn("ivan@example.com", "ivan123");
+    const reply = await api.createUser(ivan, {
+      fullName: "Nina",
+      email: "nina@example.com",
+      password: "secret1",
+      role: ROLES.USER,
+    });
+    expect(reply.status).toBe(201);
+    const text = JSON.stringify(reply.body);
+    expect(text).not.toContain("password");
+    expect(text).not.toContain("secret1");
+  });
+});
+
+describe("races between requests", () => {
+  const newUser = {
+    fullName: "Race",
+    email: "race@example.com",
+    password: "secret1",
+    role: ROLES.USER,
+  };
+
+  it("lets exactly one of five identical creates win", async () => {
+    const ivan = await signIn("ivan@example.com", "ivan123");
+    const replies = await Promise.all(
+      [1, 2, 3, 4, 5].map(() => api.createUser(ivan, newUser)),
+    );
+    expect(replies.filter((reply) => reply.status === 201)).toHaveLength(1);
+    expect(replies.filter((reply) => reply.status === 409)).toHaveLength(4);
+  });
+
+  it("leaves one active IT when two IT accounts deactivate each other at the same moment", async () => {
+    const ivan = await signIn("ivan@example.com", "ivan123");
+    const iryna = await signIn("iryna@example.com", "iryna123");
+
+    const [first, second] = await Promise.all([
+      api.patchUser(ivan, "usr_iryna", deactivate),
+      api.patchUser(iryna, "usr_ivan", deactivate),
+    ]);
+
+    expect([first.status, second.status].filter((status) => status === 200)).toHaveLength(1);
+    const survivor = first.status === 200 ? ivan : iryna;
+    const users = (await api.users(survivor)).body.users ?? [];
+    const activeIt = users.filter(
+      (user) => user.role === ROLES.IT && user.status === USER_STATUS.ACTIVE,
+    );
+    expect(activeIt).toHaveLength(1);
   });
 });
