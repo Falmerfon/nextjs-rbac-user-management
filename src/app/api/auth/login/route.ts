@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { login } from "@/server/auth";
 import { setSessionCookie } from "@/server/current-user";
-import { jsonError } from "@/server/http";
+import { json, jsonError } from "@/server/http";
 import { getStore } from "@/server/store";
 
 const LoginBody = z.object({
@@ -23,5 +23,5 @@ export async function POST(request: Request) {
   }
 
   await setSessionCookie(result.sessionId);
-  return Response.json({ user: result.user });
+  return json({ user: result.user });
 }

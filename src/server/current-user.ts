@@ -2,6 +2,7 @@ import "server-only";
 import { cookies } from "next/headers";
 import type { User } from "@/domain/user";
 import { SESSION_TTL_MS, resolveSession } from "./auth";
+import { jsonError } from "./http";
 import { getStore } from "./store";
 
 export const SESSION_COOKIE = "session";
@@ -18,6 +19,23 @@ export async function readSessionId(): Promise<string | undefined> {
 export async function getCurrentUser(): Promise<User | null> {
   const sessionId = await readSessionId();
   return sessionId ? resolveSession(getStore(), sessionId) : null;
+}
+
+/**
+ * What every API route starts with. Either the logged-in user, or the 401 to
+ * send back. A deactivated user's session no longer resolves, so their next
+ * request ends here (rule 5).
+ */
+export async function requireUser(): Promise<
+  { ok: true; user: User } | { ok: false; response: Response }
+> {
+  const user = await getCurrentUser();
+  return user
+    ? { ok: true, user }
+    : {
+        ok: false,
+        response: jsonError(401, "UNAUTHENTICATED", "You are not logged in."),
+      };
 }
 
 export async function setSessionCookie(sessionId: string): Promise<void> {
