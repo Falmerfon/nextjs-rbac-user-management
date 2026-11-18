@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { MAX_PAGE_SIZE } from "@/domain/client-schemas";
+import { MAX_PAGE_SIZE } from "@/domain/pagination";
 import { USER_STATUS, type User } from "@/domain/user";
 import { createSeededStore, type Store } from "../store";
 import { getClient, listClients } from "./clients";
