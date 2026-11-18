@@ -23,7 +23,10 @@ Checks:
 npm test             # unit tests, plus tests that call the real API route handlers
 npm run lint
 npm run typecheck
+npm run e2e          # browser tests, see below
 ```
+
+`npm run e2e` drives the real UI in Chromium through scenarios 7 to 12 and checks, for example, that the client table sends one page per request and that a deactivated user's next click ends at `/login`. It builds the app and starts its own server on port 3100, so nothing else may be using that port. Run `npx playwright install chromium` once first, or set `PLAYWRIGHT_CHROMIUM_PATH` to a Chromium you already have. It is not part of `npm test`, because it needs a browser.
 
 `npm run scenarios -- http://localhost:3000` replays scenarios 7 to 12 of the task over real HTTP with real cookies and exits non-zero if a check fails. Start a fresh server first. The scenarios deactivate accounts, and a used server is detected before the first scenario.
 
@@ -102,10 +105,10 @@ The navigation links in `src/app/(app)/layout.tsx` and the controls in `src/app/
 | --- | --- |
 | 7. Anna sees her four reports, cannot touch Dmytro | `routes.test.ts`, `scripts/scenarios.mjs` |
 | 8. Anna gives herself the IT role | `routes.test.ts`, `scripts/scenarios.mjs` |
-| 9. One page of clients per request | `routes.test.ts`, `scripts/scenarios.mjs`, the network tab |
-| 10. Ivan lands on `/manage-users`, is refused `/content` | `routes.test.ts`, `scripts/scenarios.mjs`, the browser |
+| 9. One page of clients per request | `routes.test.ts`, `scripts/scenarios.mjs`, `e2e/scenarios.spec.ts` |
+| 10. Ivan lands on `/manage-users`, is refused `/content` | `routes.test.ts`, `scripts/scenarios.mjs`, `e2e/scenarios.spec.ts` |
 | 11. Self-deactivation, then the last IT | `policy.test.ts`, `routes.test.ts`, `scripts/scenarios.mjs` |
-| 12. Olena is deactivated while browsing | `auth.test.ts`, `routes.test.ts`, `scripts/scenarios.mjs`, the browser |
+| 12. Olena is deactivated while browsing | `auth.test.ts`, `routes.test.ts`, `scripts/scenarios.mjs`, `e2e/scenarios.spec.ts` |
 
 ## Choices where the task leaves room
 
@@ -121,7 +124,7 @@ The navigation links in `src/app/(app)/layout.tsx` and the controls in `src/app/
 
 - Sorting and filtering on the client table (status, country, a search box). It would run on the server with a whitelist of sortable columns, and the state would sit in the URL next to the page number.
 - An audit trail: who changed which field of which user, and when, shown to IT.
-- Move the browser checks into the repo. I ran about 45 of them by hand with Playwright, covering scenarios 7 to 12, and did not commit them.
+- Run `npm test`, `npm run lint`, `npm run typecheck` and `npm run e2e` on every push, in a container that has Chromium.
 - Rate limiting on the login route, and an Origin check on mutating requests on top of `SameSite=lax`.
 - Better loading and error states in the client table: a retry button, and keep the old page visible while the next one loads.
 - A way for IT to reassign a manager.

@@ -32,7 +32,7 @@ describe("README and AGENTS.md", () => {
   }));
 
   it("only mention files and folders that exist", () => {
-    const path = /`((?:src|scripts)\/[A-Za-z0-9_./()[\]-]+)`/g;
+    const path = /`((?:src|scripts|e2e)\/[A-Za-z0-9_./()[\]-]+)`/g;
     const missing: string[] = [];
     for (const { name, text } of documents) {
       for (const match of text.matchAll(path)) {
@@ -50,7 +50,7 @@ describe("README and AGENTS.md", () => {
     const scripts = JSON.parse(read("package.json")).scripts as Record<string, string>;
     const missing: string[] = [];
     for (const { name, text } of documents) {
-      for (const match of text.matchAll(/npm run ([a-z:]+)/g)) {
+      for (const match of text.matchAll(/npm run ([a-z0-9:-]+)/g)) {
         const script = match[1] ?? "";
         if (!(script in scripts)) missing.push(`${name}: npm run ${script}`);
       }

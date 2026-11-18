@@ -8,6 +8,7 @@ Next.js 16 App Router, TypeScript with `strict`, data in memory (no database). T
 - `npm test`, `npm run lint` and `npm run typecheck`. Run all three before calling a change done.
 - `npm run typecheck` runs `next typegen` first, because `PageProps`, `LayoutProps` and `RouteContext` are generated globals. A bare `tsc` fails on a fresh clone.
 - Install with `npm ci`. `.npmrc` turns install scripts off and nothing here needs one. If a new dependency does, say why in the commit message. Add dependencies at a version that is at least a week old, and keep `package-lock.json` committed.
+- `npm run e2e` drives the UI in Chromium and builds and starts its own server on port 3100. Run `npx playwright install chromium` once. Run it when you change a page, a component or `callApi`: the unit and HTTP tests cannot see those.
 - `npm run scenarios -- http://localhost:3000` replays the task's scenarios over real HTTP. It needs a freshly started server, since scenarios 11 and 12 deactivate accounts.
 
 ## Layers and what may import what
