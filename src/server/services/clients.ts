@@ -4,6 +4,7 @@ import type { Client, ClientPage } from "@/domain/client";
 import { describeIssues } from "@/domain/issues";
 import { authorizeContentView, type Actor } from "@/permissions/policy";
 import type { Store } from "../store";
+import { currentActor } from "./actor";
 import { fail, ok, refusal, type ServiceResult } from "./result";
 
 /**
@@ -13,9 +14,10 @@ import { fail, ok, refusal, type ServiceResult } from "./result";
  */
 export function listClients(
   store: Store,
-  actor: Actor,
+  snapshot: Actor,
   query: unknown,
 ): ServiceResult<ClientPage> {
+  const actor = currentActor(store, snapshot);
   const gate = refusal(authorizeContentView(actor));
   if (gate) return gate;
 
@@ -36,9 +38,10 @@ export function listClients(
 
 export function getClient(
   store: Store,
-  actor: Actor,
+  snapshot: Actor,
   id: string,
 ): ServiceResult<Client> {
+  const actor = currentActor(store, snapshot);
   const gate = refusal(authorizeContentView(actor));
   if (gate) return gate;
 

@@ -62,8 +62,9 @@ describe("listUsers", () => {
   });
 
   it("refuses a deactivated actor", () => {
-    const stale = { ...actor("usr_anna"), status: USER_STATUS.DEACTIVATED };
-    expect(codeOf(listUsers(store, stale))).toBe("ACTOR_INACTIVE");
+    const anna = actor("usr_anna");
+    anna.status = USER_STATUS.DEACTIVATED;
+    expect(codeOf(listUsers(store, anna))).toBe("ACTOR_INACTIVE");
   });
 
   it("returns copies, not the stored objects", () => {
@@ -412,5 +413,37 @@ describe("rule 5: deactivation takes effect on the next request", () => {
     if (!asUser) throw new Error("session did not resolve");
     expect(asUser.role).toBe(ROLES.USER);
     expect(codeOf(listUsers(store, asUser))).toBe("FORBIDDEN");
+  });
+});
+
+describe("a stale snapshot of the acting user", () => {
+  // A route reads the session, then awaits (for the body, for params) before it
+  // calls a service. A deactivation or a role change can land in between.
+
+  it("cannot be used once the actor was deactivated", () => {
+    const snapshot = { ...actor("usr_anna") };
+    valueOf(updateUser(store, actor("usr_ivan"), "usr_anna", deactivate));
+
+    const late = updateUser(store, snapshot, "usr_olena", { fullName: "Late" });
+    expect(codeOf(late)).toBe("ACTOR_INACTIVE");
+    expect(store.users.get("usr_olena")?.fullName).not.toBe("Late");
+  });
+
+  it("is judged by the role the store has now", () => {
+    const snapshot = { ...actor("usr_anna") };
+    valueOf(
+      updateUser(store, actor("usr_ivan"), "usr_anna", { role: ROLES.USER }),
+    );
+
+    expect(codeOf(listUsers(store, snapshot))).toBe("FORBIDDEN");
+    expect(
+      codeOf(updateUser(store, snapshot, "usr_olena", { fullName: "Late" })),
+    ).toBe("FORBIDDEN");
+  });
+
+  it("is refused when the actor no longer exists", () => {
+    const ghost = { id: "usr_ghost", role: ROLES.IT, status: USER_STATUS.ACTIVE };
+    expect(codeOf(listUsers(store, ghost))).toBe("ACTOR_INACTIVE");
+    expect(codeOf(createUser(store, ghost, validNewUser))).toBe("ACTOR_INACTIVE");
   });
 });

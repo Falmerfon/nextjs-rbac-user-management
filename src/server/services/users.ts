@@ -14,6 +14,7 @@ import {
 import { hasCapability } from "@/permissions/roles";
 import { destroySessionsForUser } from "../auth";
 import type { Store } from "../store";
+import { currentActor } from "./actor";
 import { fail, ok, refusal, type ServiceResult } from "./result";
 
 /**
@@ -56,7 +57,8 @@ const byCreation = (a: User, b: User) =>
   a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id);
 
 /** Users the actor may see: everyone for IT, direct reports for a manager. */
-export function listUsers(store: Store, actor: Actor): ServiceResult<User[]> {
+export function listUsers(store: Store, snapshot: Actor): ServiceResult<User[]> {
+  const actor = currentActor(store, snapshot);
   const gate = refusal(authorizeUserManagement(actor));
   if (gate) return gate;
 
@@ -69,9 +71,10 @@ export function listUsers(store: Store, actor: Actor): ServiceResult<User[]> {
 
 export function getUser(
   store: Store,
-  actor: Actor,
+  snapshot: Actor,
   id: string,
 ): ServiceResult<User> {
+  const actor = currentActor(store, snapshot);
   // The management check comes first, so a role with no access gets the same
   // answer for a real id and a made-up one.
   const gate = refusal(authorizeUserManagement(actor));
@@ -88,10 +91,11 @@ export function getUser(
 
 export function createUser(
   store: Store,
-  actor: Actor,
+  snapshot: Actor,
   input: unknown,
   now: number = Date.now(),
 ): ServiceResult<User> {
+  const actor = currentActor(store, snapshot);
   const gate = refusal(authorizeUserCreate(actor));
   if (gate) return gate;
 
@@ -135,10 +139,11 @@ export function createUser(
 
 export function updateUser(
   store: Store,
-  actor: Actor,
+  snapshot: Actor,
   id: string,
   input: unknown,
 ): ServiceResult<User> {
+  const actor = currentActor(store, snapshot);
   const gate = refusal(authorizeUserManagement(actor));
   if (gate) return gate;
 

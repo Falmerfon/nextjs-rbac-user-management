@@ -44,8 +44,9 @@ describe("getMyProfile", () => {
   });
 
   it("refuses a deactivated actor", () => {
-    const stale = { ...actor("usr_olena"), status: USER_STATUS.DEACTIVATED };
-    expect(codeOf(getMyProfile(store, stale))).toBe("ACTOR_INACTIVE");
+    const olena = actor("usr_olena");
+    olena.status = USER_STATUS.DEACTIVATED;
+    expect(codeOf(getMyProfile(store, olena))).toBe("ACTOR_INACTIVE");
   });
 
   it("returns a copy, not the stored user", () => {

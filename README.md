@@ -80,6 +80,7 @@ Smaller details:
 
 - Login gives the same answer for an unknown email and a wrong password. It says an account is deactivated only after the right password was given.
 - Every login gets a new session id.
+- A route reads the session and calls a service a few `await`s later. Each service starts by re-reading the acting user from the store (`src/server/services/actor.ts`), so a deactivation or role change that landed in that gap still counts. The policy never sees an older picture of who is acting.
 - `SameSite=lax` stops another site from sending a POST with the cookie.
 
 ## Where permission decisions are made
@@ -89,7 +90,7 @@ Two files decide. Everything else asks them.
 1. `src/permissions/policy.ts` makes every authorization decision: who may see, create or change which user, and who may see content. It covers rules 1 to 4. What each role can do is a list of capabilities in `src/permissions/roles.ts`.
 2. `src/server/auth.ts` decides who is asking and whether the account is still active (`login`, `resolveSession`). This is rule 5.
 
-The callers ask before they act and add no rules of their own: the services in `src/server/services`, and `requireUser` and `requirePageUser` in `src/server/current-user.ts` and `src/server/page-guards.ts`. Two data rules in `src/server/services/users.ts` are not access decisions: an email must not be taken, and a new user's manager must be active and have a role that can have reports.
+The callers ask before they act and add no rules of their own: the services in `src/server/services` (each begins with `currentActor`, which refreshes who is acting), and `requireUser` and `requirePageUser` in `src/server/current-user.ts` and `src/server/page-guards.ts`. Two data rules in `src/server/services/users.ts` are not access decisions: an email must not be taken, and a new user's manager must be active and have a role that can have reports.
 
 The navigation links in `src/app/(app)/layout.tsx` and the controls in `src/app/(app)/manage-users/users-manager.tsx` also read capabilities. They only decide what is shown. The API refuses a forbidden request whatever the screen offers.
 

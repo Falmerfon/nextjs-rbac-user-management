@@ -91,8 +91,9 @@ describe("listClients", () => {
   });
 
   it("refuses a deactivated actor", () => {
-    const stale = { ...actor("usr_olena"), status: USER_STATUS.DEACTIVATED };
-    expect(codeOf(listClients(store, stale, {}))).toBe("ACTOR_INACTIVE");
+    const olena = actor("usr_olena");
+    olena.status = USER_STATUS.DEACTIVATED;
+    expect(codeOf(listClients(store, olena, {}))).toBe("ACTOR_INACTIVE");
   });
 
   it("returns copies, not the stored clients", () => {
@@ -121,5 +122,17 @@ describe("getClient", () => {
     const ivan = actor("usr_ivan");
     expect(codeOf(getClient(store, ivan, "cl_00042"))).toBe("FORBIDDEN");
     expect(codeOf(getClient(store, ivan, "cl_99999"))).toBe("FORBIDDEN");
+  });
+});
+
+describe("a stale snapshot of the acting user", () => {
+  it("cannot read clients once the actor was deactivated", () => {
+    const snapshot = { ...actor("usr_olena") };
+    const olena = store.users.get("usr_olena");
+    if (!olena) throw new Error("usr_olena is missing from the seed");
+    olena.status = USER_STATUS.DEACTIVATED;
+
+    expect(codeOf(listClients(store, snapshot, {}))).toBe("ACTOR_INACTIVE");
+    expect(codeOf(getClient(store, snapshot, "cl_00001"))).toBe("ACTOR_INACTIVE");
   });
 });

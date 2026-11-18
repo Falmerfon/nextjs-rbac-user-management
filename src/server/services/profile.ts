@@ -2,6 +2,7 @@ import "server-only";
 import type { User } from "@/domain/user";
 import { authorizeContentView, type Actor } from "@/permissions/policy";
 import type { Store } from "../store";
+import { currentActor } from "./actor";
 import { fail, ok, refusal, type ServiceResult } from "./result";
 
 export interface MyProfile {
@@ -14,7 +15,8 @@ export interface MyProfile {
  * The /content/me page. It is one of the "content pages", so the same
  * permission as the client table applies. IT has no profile page.
  */
-export function getMyProfile(store: Store, actor: Actor): ServiceResult<MyProfile> {
+export function getMyProfile(store: Store, snapshot: Actor): ServiceResult<MyProfile> {
+  const actor = currentActor(store, snapshot);
   const gate = refusal(authorizeContentView(actor));
   if (gate) return gate;
 
