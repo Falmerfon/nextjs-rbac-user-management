@@ -1,20 +1,10 @@
 import "server-only";
 import { clientPageQuerySchema } from "@/domain/client-schemas";
-import type { Client } from "@/domain/client";
+import type { Client, ClientPage } from "@/domain/client";
 import { describeIssues } from "@/domain/issues";
 import { authorizeContentView, type Actor } from "@/permissions/policy";
 import type { Store } from "../store";
 import { fail, ok, refusal, type ServiceResult } from "./result";
-
-export interface ClientPage {
-  items: Client[];
-  /** All clients, not just this page. */
-  total: number;
-  page: number;
-  /** The size actually used, after the cap. */
-  limit: number;
-  totalPages: number;
-}
 
 /**
  * One page of clients. The slicing happens here, on the server: the browser
