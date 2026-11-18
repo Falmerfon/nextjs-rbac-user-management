@@ -7,11 +7,13 @@ A small Next.js app with three roles (IT, manager, user), an in-memory data stor
 Node 22.12 or newer.
 
 ```bash
-npm install
+npm ci
 npm run dev
 ```
 
 Open http://localhost:3000. For a production build, run `npm run build && npm start`.
+
+`npm ci` installs exactly what `package-lock.json` says. The lockfile was resolved as of a week before it was written, so no installed version is newer than that. `.npmrc` turns off install scripts, because nothing here needs one.
 
 Data lives in memory and resets when the server restarts. Over https, set `SESSION_COOKIE_SECURE=true` so the session cookie gets the `Secure` flag. It is off by default so the app also works over plain http on localhost.
 
@@ -129,7 +131,7 @@ The navigation links in `src/app/(app)/layout.tsx` and the controls in `src/app/
 
 - Everything is in memory, so the app runs as one process, and sessions and data are lost on restart.
 - The 403 page uses `forbidden()`, which is experimental in Next 16 and enabled with `experimental.authInterrupts`. Next draws its text in the browser. The raw HTML has the 403 status but no visible text.
-- `npm audit` reports high-severity findings in the ESLint toolchain, which is a development dependency. The production dependencies have none.
+- `npm audit` reports findings in the lint and test toolchain (`picomatch`, `minimatch`). They are development-only and the production dependencies have none. The week-old lockfile is deliberate, and it trades the newest releases, which sometimes carry the fixes, for not trusting packages that are only hours old.
 
 ## For AI agents
 

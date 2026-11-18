@@ -7,6 +7,7 @@ Next.js 16 App Router, TypeScript with `strict`, data in memory (no database). T
 - `npm run dev`, or `npm run build && npm start`. Port 3000, Node 22.12 or newer.
 - `npm test`, `npm run lint` and `npm run typecheck`. Run all three before calling a change done.
 - `npm run typecheck` runs `next typegen` first, because `PageProps`, `LayoutProps` and `RouteContext` are generated globals. A bare `tsc` fails on a fresh clone.
+- Install with `npm ci`. `.npmrc` turns install scripts off and nothing here needs one. If a new dependency does, say why in the commit message. Add dependencies at a version that is at least a week old, and keep `package-lock.json` committed.
 - `npm run scenarios -- http://localhost:3000` replays the task's scenarios over real HTTP. It needs a freshly started server, since scenarios 11 and 12 deactivate accounts.
 
 ## Layers and what may import what
