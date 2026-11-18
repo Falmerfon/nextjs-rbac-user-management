@@ -217,6 +217,23 @@ describe("rule 2: a manager edits only their own direct reports", () => {
     );
   });
 
+  it("does not care what role the direct report has", () => {
+    // The scope is managerId, not "users with the user role". Limiting reports
+    // to one role would break the moment a fourth role appears.
+    const juniorManager = makeUser({ role: ROLES.MANAGER, managerId: anna.id });
+    expectAllowed(
+      authorizeUserUpdate(anna, juniorManager, { fullName: "Renamed" }, PLENTY_OF_IT),
+    );
+  });
+
+  it("still refuses another manager who is not a direct report", () => {
+    const peer = makeUser({ role: ROLES.MANAGER, managerId: otherManager.id });
+    expectDenied(
+      authorizeUserUpdate(anna, peer, { fullName: "Nope" }, PLENTY_OF_IT),
+      "NOT_A_DIRECT_REPORT",
+    );
+  });
+
   it("refuses a user nobody manages", () => {
     const unassigned = makeUser({ managerId: null });
     expectDenied(
