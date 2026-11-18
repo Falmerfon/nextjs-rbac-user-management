@@ -33,6 +33,27 @@ describe("layering", () => {
     expect(unguarded).toEqual([]);
   });
 
+  it("starts every service function with currentActor", () => {
+    // A route awaits between reading the session and calling a service, so the
+    // actor it passes may be out of date. currentActor re-reads it from the
+    // store before the policy runs. A service that skips it would judge the
+    // stale copy.
+    const offenders: string[] = [];
+    for (const file of sourceFiles("server/services")) {
+      if (/[\\/](actor|result)\.ts$/.test(file)) continue;
+      const text = readFileSync(file, "utf8");
+      for (const chunk of text.split(/^export function /m).slice(1)) {
+        const name = chunk.slice(0, chunk.indexOf("("));
+        const refreshed = chunk.indexOf("currentActor(");
+        const decision = chunk.search(/refusal\(|authorize[A-Z]/);
+        if (refreshed === -1 || (decision !== -1 && refreshed > decision)) {
+          offenders.push(`${relative(SRC_DIR, file)}: ${name}`);
+        }
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
   it("keeps src/domain and src/permissions free of server and framework code", () => {
     const forbidden =
       /(?:from\s+|import\s+)["'](?:@\/server|server-only|next|react)(?:\/[^"']*)?["']/;
