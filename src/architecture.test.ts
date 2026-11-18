@@ -21,6 +21,18 @@ describe("layering", () => {
     expect(missing).toEqual([]);
   });
 
+  it("makes every signed-in page call a page guard", () => {
+    // A layout is not rendered again on client-side navigation, so each page
+    // has to check access itself. This catches a new page that forgets to.
+    const unguarded = sourceFiles("app")
+      .filter((file) => /[\\/]\(app\)[\\/].*page\.tsx$/.test(file))
+      .filter(
+        (file) => !/\b(requirePageUser|requireAllowed)\(/.test(readFileSync(file, "utf8")),
+      )
+      .map((file) => relative(SRC_DIR, file));
+    expect(unguarded).toEqual([]);
+  });
+
   it("keeps src/domain and src/permissions free of server and framework code", () => {
     const forbidden =
       /(?:from\s+|import\s+)["'](?:@\/server|server-only|next|react)(?:\/[^"']*)?["']/;
