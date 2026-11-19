@@ -97,7 +97,7 @@ Two files decide. Everything else asks them.
 
 The callers ask before they act and add no rules of their own: the services in `src/server/services` (each begins with `currentActor`, which refreshes who is acting), and `requireUser` and `requirePageUser` in `src/server/current-user.ts` and `src/server/page-guards.ts`. Two data rules in `src/server/services/users.ts` are not access decisions: an email must not be taken, and a new user's manager must be active and have a role that can have reports.
 
-The navigation links in `src/app/(app)/layout.tsx` and the controls in `src/app/(app)/manage-users/users-manager.tsx` also read capabilities. They only decide what is shown. The API refuses a forbidden request whatever the screen offers.
+The navigation links in `src/app/(app)/layout.tsx` and the controls in `src/app/(app)/manage-users/users-manager.tsx` also read capabilities, and the screen asks `authorizeProfileEdit` for each row. They only decide what is shown. The API refuses a forbidden request whatever the screen offers.
 
 ## The task's scenarios
 
@@ -113,6 +113,7 @@ The navigation links in `src/app/(app)/layout.tsx` and the controls in `src/app/
 ## Choices where the task leaves room
 
 - "Demote" is not defined for roles that are not hierarchical, so any change to your own role is refused.
+- A manager edits a direct report only if the role of that account allows it (`editableAsReport` in `src/permissions/roles.ts`). IT can change a report's role while `managerId` stays, and without this check a manager could then edit another manager, which the task rules out ("not other managers"). IT can still edit that account.
 - A manager may edit the name and email of a deactivated direct report. The task says only that `managerId` must be the manager's own id.
 - Only a field whose value changes counts as a change. An update that changes nothing on a user you cannot see is still refused.
 - `managerId` is set when a user is created and cannot be changed. The task's table gives nobody the right to reassign a user.
@@ -134,6 +135,7 @@ The navigation links in `src/app/(app)/layout.tsx` and the controls in `src/app/
 
 - Everything is in memory, so the app runs as one process, and sessions and data are lost on restart.
 - The 403 page uses `forbidden()`, which is experimental in Next 16 and enabled with `experimental.authInterrupts`. Next draws its text in the browser. The raw HTML has the 403 status but no visible text.
+- After a deactivation, the browser's Back button can still show a page the user had already opened, because Next restores it from its client cache without a request. Nothing new is sent: the next request of any kind, a click, a reload or an API call, gets a 401 and ends at `/login`. Scenario 12 is about that next request.
 - `npm audit` reports findings in the lint and test toolchain (`picomatch`, `minimatch`). They are development-only and the production dependencies have none. The week-old lockfile is deliberate, and it trades the newest releases, which sometimes carry the fixes, for not trusting packages that are only hours old.
 
 ## For AI agents

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { USER_STATUS } from "@/domain/user";
 import {
   authorizeContentView,
+  authorizeProfileEdit,
   authorizeUserCreate,
   authorizeUserManagement,
   authorizeUserUpdate,
@@ -10,7 +11,7 @@ import {
   type Decision,
   type DenyCode,
 } from "./policy";
-import { ALL_ROLES, ROLES, type Role } from "./roles";
+import { ALL_ROLES, ROLES, ROLE_DEFINITIONS, type Role } from "./roles";
 import { makeUser } from "./test-utils";
 
 function activeCounts(counts: Partial<Record<Role, number>> = {}): ActiveCount {
@@ -217,12 +218,55 @@ describe("rule 2: a manager edits only their own direct reports", () => {
     );
   });
 
-  it("does not care what role the direct report has", () => {
-    // The scope is managerId, not "users with the user role". Limiting reports
-    // to one role would break the moment a fourth role appears.
-    const juniorManager = makeUser({ role: ROLES.MANAGER, managerId: anna.id });
+  it("refuses a direct report who is a manager: the task says not other managers", () => {
+    // IT can change a report's role, so a manager can end up with a managerId
+    // that names another manager. That account is still not theirs to edit.
+    const promoted = makeUser({ role: ROLES.MANAGER, managerId: anna.id });
+    expectDenied(
+      authorizeUserUpdate(anna, promoted, { fullName: "Renamed" }, PLENTY_OF_IT),
+      "ROLE_NOT_EDITABLE",
+    );
+  });
+
+  it("refuses an IT account whose managerId points at the manager", () => {
+    const promoted = makeUser({ role: ROLES.IT, managerId: anna.id });
+    expectDenied(
+      authorizeUserUpdate(anna, promoted, { email: "x@y.test" }, PLENTY_OF_IT),
+      "ROLE_NOT_EDITABLE",
+    );
+  });
+
+  const editableRoles = ALL_ROLES.filter((role) => ROLE_DEFINITIONS[role].editableAsReport);
+  const lockedRoles = ALL_ROLES.filter((role) => !ROLE_DEFINITIONS[role].editableAsReport);
+
+  it.each(editableRoles)("allows a direct report with the %s role, as its definition says", (role) => {
+    const report = makeUser({ role, managerId: anna.id });
     expectAllowed(
-      authorizeUserUpdate(anna, juniorManager, { fullName: "Renamed" }, PLENTY_OF_IT),
+      authorizeUserUpdate(anna, report, { fullName: "Renamed" }, PLENTY_OF_IT),
+    );
+  });
+
+  it.each(lockedRoles)("refuses a direct report with the %s role, as its definition says", (role) => {
+    const report = makeUser({ role, managerId: anna.id });
+    expectDenied(
+      authorizeUserUpdate(anna, report, { fullName: "Renamed" }, PLENTY_OF_IT),
+      "ROLE_NOT_EDITABLE",
+    );
+  });
+
+  it("still lets IT edit that account, whatever its role or managerId", () => {
+    const ivan = makeUser({ role: ROLES.IT });
+    const promoted = makeUser({ role: ROLES.MANAGER, managerId: anna.id });
+    expectAllowed(
+      authorizeUserUpdate(ivan, promoted, { fullName: "Renamed" }, PLENTY_OF_IT),
+    );
+  });
+
+  it("leaves a request that changes nothing on such an account to the view rule", () => {
+    // Nothing is edited, so rule 2 has nothing to refuse. She may still see it.
+    const promoted = makeUser({ role: ROLES.MANAGER, managerId: anna.id });
+    expectAllowed(
+      authorizeUserUpdate(anna, promoted, { fullName: promoted.fullName }, PLENTY_OF_IT),
     );
   });
 
@@ -487,6 +531,37 @@ describe("content", () => {
   it("is refused to IT with a clear reason", () => {
     expectDenied(
       authorizeContentView(makeUser({ role: ROLES.IT })),
+      "FORBIDDEN",
+    );
+  });
+});
+
+describe("authorizeProfileEdit: what the manage-users screen asks for each row", () => {
+  const anna = makeUser({ role: ROLES.MANAGER });
+  const ivan = makeUser({ role: ROLES.IT });
+
+  it("agrees with authorizeUserUpdate on every role of the target", () => {
+    for (const role of ALL_ROLES) {
+      for (const actor of [anna, ivan]) {
+        const target = makeUser({ role, managerId: anna.id });
+        const asked = authorizeProfileEdit(actor, target);
+        const updated = authorizeUserUpdate(actor, target, { fullName: "Renamed" }, PLENTY_OF_IT);
+        expect(asked.allowed).toBe(updated.allowed);
+      }
+    }
+  });
+
+  it("allows IT everywhere and a manager only for editable direct reports", () => {
+    const report = makeUser({ managerId: anna.id });
+    const stranger = makeUser({ managerId: null });
+    expect(authorizeProfileEdit(ivan, stranger).allowed).toBe(true);
+    expect(authorizeProfileEdit(anna, report).allowed).toBe(true);
+    expect(authorizeProfileEdit(anna, stranger).allowed).toBe(false);
+  });
+
+  it("refuses an actor whose role has no edit rights at all", () => {
+    expectDenied(
+      authorizeProfileEdit(makeUser({ role: ROLES.USER }), makeUser()),
       "FORBIDDEN",
     );
   });

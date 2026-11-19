@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { callApi, describeError } from "@/app/_lib/api";
 import { USER_STATUS, type User } from "@/domain/user";
+import { authorizeProfileEdit } from "@/permissions/policy";
 import {
   ALL_ROLES,
   ROLES,
@@ -14,7 +15,8 @@ import {
 } from "@/permissions/roles";
 
 /**
- * What is shown follows the user's capabilities, which keeps the screen tidy.
+ * What is shown follows the user's capabilities and the policy's answer for
+ * each row, which keeps the screen tidy.
  * It is not enforcement: the API refuses a forbidden change whatever the screen
  * offers. The reasons for rules 3 and 4 are deliberately not pre-empted here,
  * so the message the server gives is what the user sees.
@@ -44,9 +46,6 @@ export function UsersManager({ currentUser, users }: Props) {
 
   const role = currentUser.role;
   const canCreate = hasCapability(role, "users:create");
-  const canEditProfile =
-    hasCapability(role, "users:edit-profile:all") ||
-    hasCapability(role, "users:edit-profile:reports");
   const canChangeRole = hasCapability(role, "users:change-role");
   const canChangeStatus = hasCapability(role, "users:change-status");
 
@@ -112,7 +111,7 @@ export function UsersManager({ currentUser, users }: Props) {
                 key={`${user.id}|${user.fullName}|${user.email}|${user.role}|${user.status}`}
                 user={user}
                 managerLabel={managerLabel(user)}
-                canEditProfile={canEditProfile}
+                canEditProfile={authorizeProfileEdit(currentUser, user).allowed}
                 canChangeRole={canChangeRole}
                 canChangeStatus={canChangeStatus}
                 run={run}

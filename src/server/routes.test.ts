@@ -170,6 +170,23 @@ describe("scenario 7: Anna and her direct reports", () => {
     );
   });
 
+  it("refuses to edit a direct report whom IT made a manager (rule 2: not other managers)", async () => {
+    const ivan = await signIn("ivan@example.com", "ivan123");
+    const anna = await signIn("anna@example.com", "anna123");
+
+    const promote = await api.patchUser(ivan, "usr_maksym", { role: ROLES.MANAGER });
+    expect(promote.status).toBe(200);
+    expect(promote.body.user?.managerId).toBe("usr_anna");
+
+    const edit = await api.patchUser(anna, "usr_maksym", { fullName: "Nope" });
+    expect(edit.status).toBe(403);
+    expect(errorCode(edit)).toBe("ROLE_NOT_EDITABLE");
+    expect((await api.user(ivan, "usr_maksym")).body.user?.fullName).toBe("Maksym Hnatiuk");
+
+    const byIt = await api.patchUser(ivan, "usr_maksym", { fullName: "Max H." });
+    expect(byIt.status).toBe(200);
+  });
+
   it("lets her rename a direct report", async () => {
     const anna = await signIn("anna@example.com", "anna123");
     const edit = await api.patchUser(anna, "usr_olena", { fullName: "Olena K." });

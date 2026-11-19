@@ -18,6 +18,7 @@ export type DenyCode =
   | "ACTOR_INACTIVE"
   | "FORBIDDEN"
   | "NOT_A_DIRECT_REPORT"
+  | "ROLE_NOT_EDITABLE"
   | "LAST_ACTIVE_ACCOUNT"
   | "CANNOT_DEACTIVATE_SELF"
   | "CANNOT_CHANGE_OWN_ROLE";
@@ -77,6 +78,44 @@ function checkScope(
       : deny("NOT_A_DIRECT_REPORT", `You can only ${verb} your direct reports.`);
   }
   return deny("FORBIDDEN", `Your role cannot ${verb} users.`);
+}
+
+/**
+ * Rule 2, and the question the manage-users screen asks for each row: may
+ * `actor` change the name or email of `target`?
+ *
+ * Someone with the `all` capability may. Someone with only the `reports`
+ * capability may for a direct report whose role is editable as a report, so a
+ * manager is never allowed to edit another manager, even one whose managerId
+ * still points at them after IT changed the role.
+ */
+export function authorizeProfileEdit(
+  actor: Actor,
+  target: Pick<User, "id" | "managerId" | "role">,
+): Decision {
+  const blocked = rejectInactive(actor);
+  if (blocked) return blocked;
+
+  const scope = checkScope(
+    actor,
+    target,
+    {
+      all: "users:edit-profile:all",
+      reports: "users:edit-profile:reports",
+    },
+    "edit",
+  );
+  if (!scope.allowed || hasCapability(actor.role, "users:edit-profile:all")) {
+    return scope;
+  }
+
+  const { label, editableAsReport } = ROLE_DEFINITIONS[target.role];
+  return editableAsReport
+    ? scope
+    : deny(
+        "ROLE_NOT_EDITABLE",
+        `You cannot edit a ${label} account, even one that reports to you.`,
+      );
 }
 
 export function authorizeContentView(actor: Actor): Decision {
@@ -168,16 +207,8 @@ export function authorizeUserUpdate(
     return deny("FORBIDDEN", "Your role cannot activate or deactivate users.");
   }
   if (changesProfile) {
-    const scope = checkScope(
-      actor,
-      target,
-      {
-        all: "users:edit-profile:all",
-        reports: "users:edit-profile:reports",
-      },
-      "edit",
-    );
-    if (!scope.allowed) return scope;
+    const edit = authorizeProfileEdit(actor, target);
+    if (!edit.allowed) return edit;
   }
 
   // 2. The system keeps its minimum of active accounts for each role.

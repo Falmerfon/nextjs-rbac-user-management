@@ -13,6 +13,7 @@ describe("role definitions", () => {
     expect(definition.label).not.toBe("");
     expect(definition.homePath.startsWith("/")).toBe(true);
     expect(definition.minActiveAccounts).toBeGreaterThanOrEqual(0);
+    expect(typeof definition.editableAsReport).toBe("boolean");
     expect(new Set(definition.capabilities).size).toBe(
       definition.capabilities.length,
     );
@@ -30,6 +31,11 @@ describe("role definitions", () => {
       (capability) => !hasCapability(ROLES.IT, capability),
     );
     expect(missing).toContain("content:view");
+  });
+
+  it("does not let a manager edit another manager or an IT account", () => {
+    expect(ROLE_DEFINITIONS[ROLES.MANAGER].editableAsReport).toBe(false);
+    expect(ROLE_DEFINITIONS[ROLES.IT].editableAsReport).toBe(false);
   });
 
   it("requires at least one active account only for the role that needs it", () => {

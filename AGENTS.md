@@ -27,7 +27,7 @@ A request goes route handler or page, then a function in `src/server/services`, 
 ## Rules an agent is likely to break
 
 1. Permission decisions live in `policy.ts` and nowhere else. Never branch on a role in a route, page, component or service. Add a capability to `roles.ts` and ask the policy. A hidden button is a hint, not enforcement.
-2. The client is never trusted. Every API route starts with `requireUser()`, calls a service and ends with `respond()`. Services take `unknown` input and validate it with the strict schemas in `src/domain`, so a caller cannot slip in `managerId`, `password` or `id`.
+2. The client is never trusted. Every API route except login and logout starts with `requireUser()`, calls a service and ends with `respond()`. Services take `unknown` input and validate it with the strict schemas in `src/domain`, so a caller cannot slip in `managerId`, `password` or `id`.
 3. Role names appear in `roles.ts` only. Elsewhere use `ROLES.X` or `hasCapability()`. `no-inline-roles.test.ts` fails on any quoted role value in `src`, even the English word "user" in UI text. Reword the text instead of loosening the test.
 4. The client list is paginated on the server. `listClients` slices it and caps `limit` at `MAX_PAGE_SIZE`. Never return `store.clients`, hand it to a component or add an endpoint that returns it whole.
 5. Deactivation and role changes apply on the next request. A session holds only a user id and an expiry, and `resolveSession` reads the user from the store every time. Never copy role or status into the cookie or the session, never cache user data, never turn on `cacheComponents`, and do not introduce JWTs.
@@ -39,7 +39,7 @@ A request goes route handler or page, then a function in `src/server/services`, 
 
 ## Adding a fourth role
 
-1. In `roles.ts`, add it to `ROLES` and give it an entry in `ROLE_DEFINITIONS`: label, `homePath`, `capabilities`, `minActiveAccounts`.
+1. In `roles.ts`, add it to `ROLES` and give it an entry in `ROLE_DEFINITIONS`: label, `homePath`, `capabilities`, `minActiveAccounts`, `editableAsReport`.
 2. Run `npm run typecheck`. The compiler points at the `MATRIX` table in `policy.test.ts`. Add a row for the role.
 3. Run `npm test`.
 
@@ -49,6 +49,7 @@ That is all. If you are about to edit `policy.ts`, a page or a component for the
 
 - IT cannot open `/content`, `/content/me` or the client API. IT is not a superset of manager.
 - In `authorizeUserUpdate` the last-active-account rule runs before the self-protection rule. Scenario 11 expects two different reasons for the same self-deactivation request. Do not reorder them.
+- A manager cannot edit a direct report who is a manager or IT. IT can change a report's role and `managerId` stays, so the policy also asks `editableAsReport` of the target's role (`authorizeProfileEdit`). The task says "not other managers". Do not limit reports to one role instead: a new role only needs its own `editableAsReport`.
 - A change to your own role is always refused, whatever the new role is. A field whose value does not change is not a change, and an update that changes nothing on a user you cannot see is still refused.
 - The store lives on `globalThis.__rbacStore`. Next loads a module more than once (hot reload, separate bundles), and a module-level variable would give each copy its own data. Data and sessions are lost on restart.
 - Clients come from a seeded random generator, so ids and data are the same after every restart.

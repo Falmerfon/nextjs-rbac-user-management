@@ -232,6 +232,34 @@ test.describe("scenario 12: Olena is deactivated while she is browsing", () => {
   });
 });
 
+// Anna renamed him to "Maksym H." in an earlier test of this serial run.
+test("rule 2: a direct report whom IT made a manager is read-only for Anna", async () => {
+  await ivan.page.goto("/manage-users");
+  const maksym = userRow(ivan.page, "Maksym H.");
+  await maksym.getByLabel("Role of Maksym H.").selectOption({ label: "Manager" });
+  await maksym.getByRole("button", { name: "Save" }).click();
+  await expect(ivan.page.getByText("Maksym H.: saved.")).toBeVisible();
+
+  // Anna still lists him as her report, but the screen offers no inputs.
+  await anna.page.goto("/manage-users");
+  await expect(anna.page.getByRole("cell", { name: "Maksym H." })).toBeVisible();
+  await expect(anna.page.getByLabel("Full name of Maksym H.")).toHaveCount(0);
+  await expect(anna.page.getByLabel("Full name of Olena Kravets")).toHaveCount(1);
+
+  // The API refuses her too, whatever the screen offers.
+  const id = await ivan.context.request
+    .get("/api/users")
+    .then((reply) => reply.json())
+    .then((body: { users: { id: string; email: string }[] }) =>
+      body.users.find((user) => user.email === "maksym@example.com")?.id,
+    );
+  const edit = await anna.context.request.patch(`/api/users/${id}`, {
+    data: { fullName: "Nope" },
+  });
+  expect(edit.status()).toBe(403);
+  expect((await edit.json()).error.code).toBe("ROLE_NOT_EDITABLE");
+});
+
 test("signing out leads to /login, and Back does not show protected pages", async () => {
   await anna.page.goto("/content");
   await anna.page.getByRole("button", { name: "Sign out" }).click();

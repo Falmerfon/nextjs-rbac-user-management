@@ -224,6 +224,31 @@ describe("updateUser: who may edit whom", () => {
     expect(codeOf(result)).toBe("NOT_A_DIRECT_REPORT");
   });
 
+  it("refuses Anna on a direct report whom IT has made a manager", () => {
+    // Rule 2: "not other managers". IT can change a report's role, and the
+    // managerId stays, so the role of the target has to count too.
+    valueOf(
+      updateUser(store, actor("usr_ivan"), "usr_maksym", { role: ROLES.MANAGER }),
+    );
+    expect(store.users.get("usr_maksym")?.managerId).toBe("usr_anna");
+
+    const before = { ...actor("usr_maksym") };
+    const result = updateUser(store, actor("usr_anna"), "usr_maksym", {
+      fullName: "Nope",
+      email: "nope@example.com",
+    });
+    expect(codeOf(result)).toBe("ROLE_NOT_EDITABLE");
+    expect(store.users.get("usr_maksym")).toEqual(before);
+
+    // IT still can, and Anna still sees him in her list.
+    expect(
+      codeOf(updateUser(store, actor("usr_ivan"), "usr_maksym", { fullName: "Max" })),
+    ).toBe("ok");
+    expect(
+      valueOf(listUsers(store, actor("usr_anna"))).map((user) => user.id),
+    ).toContain("usr_maksym");
+  });
+
   it("scenario 8: refuses Anna who gives herself the IT role", () => {
     expect(
       codeOf(
