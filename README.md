@@ -135,7 +135,7 @@ The navigation links in `src/app/(app)/layout.tsx` and the controls in `src/app/
 
 - Everything is in memory, so the app runs as one process, and sessions and data are lost on restart.
 - The 403 page uses `forbidden()`, which is experimental in Next 16 and enabled with `experimental.authInterrupts`. Next draws its text in the browser. The raw HTML has the 403 status but no visible text.
-- After a deactivation, the browser's Back button can still show a page the user had already opened, because Next restores it from its client cache without a request. Nothing new is sent: the next request of any kind, a click, a reload or an API call, gets a 401 and ends at `/login`. Scenario 12 is about that next request.
+- After a deactivation, the browser's Back button can still show a page the user had already opened, because Next restores it from its client cache without a request. Nothing new is sent. The next request of any kind is refused: an API call gets a 401 with no redirect, and a page request gets a 307 to `/login`. Scenario 12 is about that next request.
 - `npm audit` reports findings in the lint and test toolchain (`picomatch`, `minimatch`). They are development-only and the production dependencies have none. The week-old lockfile is deliberate, and it trades the newest releases, which sometimes carry the fixes, for not trusting packages that are only hours old.
 
 ## For AI agents

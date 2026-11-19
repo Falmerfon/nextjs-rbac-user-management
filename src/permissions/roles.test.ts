@@ -33,9 +33,10 @@ describe("role definitions", () => {
     expect(missing).toContain("content:view");
   });
 
-  it("does not let a manager edit another manager or an IT account", () => {
+  it("does not let a manager edit another manager, and excludes nobody else", () => {
     expect(ROLE_DEFINITIONS[ROLES.MANAGER].editableAsReport).toBe(false);
-    expect(ROLE_DEFINITIONS[ROLES.IT].editableAsReport).toBe(false);
+    expect(ROLE_DEFINITIONS[ROLES.IT].editableAsReport).toBe(true);
+    expect(ROLE_DEFINITIONS[ROLES.USER].editableAsReport).toBe(true);
   });
 
   it("requires at least one active account only for the role that needs it", () => {

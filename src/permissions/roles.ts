@@ -49,8 +49,8 @@ export interface RoleDefinition {
    * Whether someone whose edit rights stop at their direct reports may edit an
    * account with this role. The task says a manager edits their own reports,
    * "not other managers". IT can change a report's role and `managerId` stays,
-   * so a manager can be left with a "report" who is a manager or IT. That
-   * account is then edited by IT only.
+   * so a manager can be left with a "report" who is a manager. That account is
+   * then edited by IT only. Nothing excludes the other roles, so they stay true.
    */
   editableAsReport: boolean;
 }
@@ -67,7 +67,7 @@ export const ROLE_DEFINITIONS: Record<Role, RoleDefinition> = {
       "users:change-status",
     ],
     minActiveAccounts: 1,
-    editableAsReport: false,
+    editableAsReport: true,
   },
   [ROLES.MANAGER]: {
     label: "Manager",

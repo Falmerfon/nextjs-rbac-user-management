@@ -228,11 +228,10 @@ describe("rule 2: a manager edits only their own direct reports", () => {
     );
   });
 
-  it("refuses an IT account whose managerId points at the manager", () => {
-    const promoted = makeUser({ role: ROLES.IT, managerId: anna.id });
-    expectDenied(
-      authorizeUserUpdate(anna, promoted, { email: "x@y.test" }, PLENTY_OF_IT),
-      "ROLE_NOT_EDITABLE",
+  it("allows an IT account whose managerId points at the manager: the task excludes only other managers", () => {
+    const itReport = makeUser({ role: ROLES.IT, managerId: anna.id });
+    expectAllowed(
+      authorizeUserUpdate(anna, itReport, { email: "x@y.test" }, PLENTY_OF_IT),
     );
   });
 

@@ -49,7 +49,7 @@ That is all. If you are about to edit `policy.ts`, a page or a component for the
 
 - IT cannot open `/content`, `/content/me` or the client API. IT is not a superset of manager.
 - In `authorizeUserUpdate` the last-active-account rule runs before the self-protection rule. Scenario 11 expects two different reasons for the same self-deactivation request. Do not reorder them.
-- A manager cannot edit a direct report who is a manager or IT. IT can change a report's role and `managerId` stays, so the policy also asks `editableAsReport` of the target's role (`authorizeProfileEdit`). The task says "not other managers". Do not limit reports to one role instead: a new role only needs its own `editableAsReport`.
+- A manager cannot edit a direct report who is a manager. IT can change a report's role and `managerId` stays, so the policy also asks `editableAsReport` of the target's role (`authorizeProfileEdit`). The task says "not other managers" and excludes no other role. Do not limit reports to one role instead: a new role only needs its own `editableAsReport`.
 - A change to your own role is always refused, whatever the new role is. A field whose value does not change is not a change, and an update that changes nothing on a user you cannot see is still refused.
 - The store lives on `globalThis.__rbacStore`. Next loads a module more than once (hot reload, separate bundles), and a module-level variable would give each copy its own data. Data and sessions are lost on restart.
 - Clients come from a seeded random generator, so ids and data are the same after every restart.
